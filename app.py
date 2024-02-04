@@ -1,6 +1,6 @@
 from flask import Flask, jsonify, request
 from stun import get_ip_info
-from flask_restx import Api, Resource, Namespace, fields
+from flask_restx import Api, Resource, Namespace, fields, abort
 
 from flask_sqlalchemy import SQLAlchemy
 from database import UserDB, WalletDB
@@ -70,8 +70,9 @@ class User(Resource):
         time_start = time()
         data = request.get_json()
         if db_user.new_user(data['login'], data['password']):
-            return f'время: {time() - time_start}'
-        return 'error'
+            print(f'время: {time() - time_start}')
+            return 'Создан пользователь', 201
+        return 'Ошибка запроса', 400
 
     @ns.expect(user_model2)
     def patch(self):
@@ -79,18 +80,19 @@ class User(Resource):
         time_start = time()
         data = request.get_json()
         if db_user.update_data(data['login'], data['password'], data['new_login'], data['new_password']):
-            return f'время: {time() - time_start}'
-        return 'error'
+            print(f'время: {time() - time_start}')
+            return 'Изменение загружено', 201
+        return 'Ошибка запроса', 400
 
     @ns.expect(user_model1)
     def delete(self):
         '''Delete user'''
         time_start = time()
         data = request.get_json()
-
         if db_user.delete(data['login'], data['password']):
-            return f'время: {time() - time_start}'
-        return 'error'
+            print(f'время: {time() - time_start}')
+            return 'Пользователь удалён', 201
+        return 'Ошибка запроса', 400
 
 
 @api.route("/wallet")
@@ -99,18 +101,13 @@ class Wallet(Resource):
     def post(self):
         '''New wallet'''
         time_start = time()
-        time_start = time()
         data = request.get_json()
         userID = db_user.find_user(data['login']).user
-        if userID.password == data['password']:
-            if db_wal.new_wallet(userID.id, get_ip_info()[1], 'не понял, что за сеть нужна', 0):
-                return f'время: {time() - time_start}'
-            else:
-                return 'error'
+        if userID.password == data['password'] and db_wal.new_wallet(userID.id, get_ip_info()[1], 'не понял, что за сеть нужна', 0):
+            print(f'время: {time() - time_start}')
+            return 'Создан кошелёк', 201
         else:
-            return 'error password'
-
-        pass
+            return 'Ошибка запроса', 400
 
     @ns.expect(wallet_model1)
     def patch(self):
@@ -121,33 +118,34 @@ class Wallet(Resource):
         user = db_user.find_user(data['login']).user
         if user.password == data['password']:
             if user.id == db_wal.find_wallet(data['wallet2_id']).wallet.userID and db_wal.transfer(data['wallet1_id'], data['wallet2_id'], data['value']):
-                return f'время: {time() - time_start}'
+                print(f'время: {time() - time_start}')
+                return 'Создано', 201
             elif data['login'] == 'admin':
                 if db_wal.transfer(data['wallet1_id'], data['wallet2_id'], data['value'], admin=True):
-                    return f'время: {time() - time_start}'
-        return 'error'
+                    print(f'время: {time() - time_start}')
+                    return 'Деньги переведены', 201
+        return 'Ошибка запроса', 400
 
     @ns.expect(user_model1)
     def put(self):
         '''Sellect all wallet'''
         # put использовать не корректно, надо было написать новый класс, но пытался быстрее
         data = request.get_json()
-        userID = db_user.find_user(data['login']).user
-        if userID.password == data['password']:
-            data = db_wal.sellect_all(userID.id)
+        user = db_user.find_user(data['login']).user
+        if user.password == data['password']:
+            data_db = db_wal.sellect_all(user.id)
             json = {}
-            for i in range(len(data)):
-                json.update({data[i].id: {'userID': data[i].userID,
-                                          'address': data[i].address,
-                                          'net': data[i].net,
-                                          'value': data[i].value}
-                             })
+            for i in range(len(data_db)):
+                json.update({data_db[i].id: {'userID': data_db[i].userID,
+                                          'address': data_db[i].address,
+                                          'net': data_db[i].net,
+                                          'value': data_db[i].value}})
             return jsonify(json)
-        return 'error'
+        return 'Ошибка запроса', 400
 
 
 if __name__ == "__main__":
     app.app_context().push()
-    db_main.drop_all()
+    # db_main.drop_all()
     db_main.create_all()
     app.run(debug=True)

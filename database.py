@@ -1,17 +1,8 @@
-from flask_login import UserMixin
-from sqlalchemy import text
-
-
-class UserDB(UserMixin):
+class UserDB:
     def __init__(self, db, table):
         self.db = db
         self.table = table
         self.active = True
-
-    def find_id(self, user_id):
-        self.user = self.db.session.execute(self.db.select(self.table).
-                                            filter_by(id=user_id)).scalar_one()
-        return self
 
     def find_user(self, user_login):
         if self.exist_user(user_login):
@@ -65,7 +56,7 @@ class UserDB(UserMixin):
         return self.user.id
 
 
-class WalletDB(UserMixin):
+class WalletDB:
     def __init__(self, db, table):
         self.db = db
         self.table = table
